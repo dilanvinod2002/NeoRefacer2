@@ -403,7 +403,7 @@ with gr.Blocks(theme=theme, title="NeoRefacer - AI Refacer") as demo:
 
         def run_bulk(files, dest_face_img, origin_face_img, threshold_val, partial_reface_ratio, progress=gr.Progress()):
             if not files or dest_face_img is None:
-                return "Input images and destination face are required.", "", None, gr.update(visible=False), [], []
+                return "Input images and destination face are required.", "", None, gr.update(visible=False), [], gr.update(choices=[], value=[])
 
             faces_config = [{
                 'origin': origin_face_img,
@@ -429,7 +429,7 @@ with gr.Blocks(theme=theme, title="NeoRefacer - AI Refacer") as demo:
                 except Exception as e:
                     output_messages.append(f"Failed to process {os.path.basename(image_path.name)}: {e}")
             
-            return "\n".join(output_messages), "Processing complete.", None, gr.update(visible=True), preview_images, refaced_files
+            return "\n".join(output_messages), "Processing complete.", None, gr.update(visible=True), preview_images, gr.update(choices=refaced_files, value=refaced_files)
 
         def download_selected(selected_files):
             if not selected_files:
@@ -448,7 +448,10 @@ with gr.Blocks(theme=theme, title="NeoRefacer - AI Refacer") as demo:
             outputs=[bulk_output, bulk_status, bulk_download, bulk_preview_col, bulk_preview_gallery, selected_files_chg]
         )
 
-        select_all_btn.click(lambda x: gr.update(value=x), inputs=[selected_files_chg], outputs=[selected_files_chg])
+        def select_all(choices):
+            return gr.update(value=choices)
+
+        select_all_btn.click(fn=select_all, inputs=[selected_files_chg], outputs=[selected_files_chg])
         deselect_all_btn.click(lambda: gr.update(value=[]), inputs=None, outputs=[selected_files_chg])
 
         download_selected_btn.click(
@@ -484,7 +487,7 @@ with gr.Blocks(theme=theme, title="NeoRefacer - AI Refacer") as demo:
 
         def run_bulk_video(files, dest_face_img, origin_face_img, threshold_val, partial_reface_ratio, progress=gr.Progress()):
             if not files or dest_face_img is None:
-                return "Input videos and destination face are required.", "", None, gr.update(visible=False), [], []
+                return "Input videos and destination face are required.", "", None, gr.update(visible=False), [], gr.update(choices=[], value=[])
 
             faces_config = [{
                 'origin': origin_face_img,
@@ -513,7 +516,7 @@ with gr.Blocks(theme=theme, title="NeoRefacer - AI Refacer") as demo:
                 except Exception as e:
                     output_messages.append(f"Failed to process {os.path.basename(video_path.name)}: {e}")
             
-            return "\n".join(output_messages), "Processing complete.", None, gr.update(visible=True), preview_images, refaced_files
+            return "\n".join(output_messages), "Processing complete.", None, gr.update(visible=True), preview_images, gr.update(choices=refaced_files, value=refaced_files)
 
         def download_selected_videos(selected_files):
             if not selected_files:
@@ -532,7 +535,10 @@ with gr.Blocks(theme=theme, title="NeoRefacer - AI Refacer") as demo:
             outputs=[bulk_video_output, bulk_video_status, bulk_video_download, bulk_video_preview_col, bulk_video_preview_gallery, selected_video_files_chg]
         )
 
-        select_all_video_btn.click(lambda x: gr.update(value=x), inputs=[selected_video_files_chg], outputs=[selected_video_files_chg])
+        def select_all_videos(choices):
+            return gr.update(value=choices)
+
+        select_all_video_btn.click(fn=select_all_videos, inputs=[selected_video_files_chg], outputs=[selected_video_files_chg])
         deselect_all_video_btn.click(lambda: gr.update(value=[]), inputs=None, outputs=[selected_video_files_chg])
 
         download_selected_video_btn.click(
