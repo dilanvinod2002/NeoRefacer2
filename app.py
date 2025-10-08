@@ -14,6 +14,7 @@ import pyfiglet
 import shutil
 import time
 from pathlib import Path
+import ffmpeg
 
 print("\033[94m" + pyfiglet.Figlet(font='slant').renderText("NeoRefacer") + "\033[0m")
 
@@ -392,9 +393,17 @@ with gr.Blocks(theme=theme, title="NeoRefacer - AI Refacer") as demo:
         with gr.Row():
             bulk_download = gr.File(label="Download Results")
 
+        with gr.Column(visible=False) as bulk_preview_col:
+            bulk_preview_gallery = gr.Gallery(label="Preview Results")
+            with gr.Row():
+                select_all_btn = gr.Button("Select All")
+                deselect_all_btn = gr.Button("Deselect All")
+            selected_files_chg = gr.CheckboxGroup(label="Selected Files", visible=False)
+            download_selected_btn = gr.Button("Download Selected", variant="primary")
+
         def run_bulk(files, dest_face_img, origin_face_img, threshold_val, partial_reface_ratio, progress=gr.Progress()):
             if not files or dest_face_img is None:
-                return "Input images and destination face are required.", "", None
+                return "Input images and destination face are required.", "", None, gr.update(visible=False), [], []
 
             faces_config = [{
                 'origin': origin_face_img,
@@ -406,6 +415,7 @@ with gr.Blocks(theme=theme, title="NeoRefacer - AI Refacer") as demo:
 
             output_messages = []
             refaced_files = []
+            preview_images = []
             total_files = len(files)
 
             for i, image_path in enumerate(files):
@@ -415,24 +425,36 @@ with gr.Blocks(theme=theme, title="NeoRefacer - AI Refacer") as demo:
                     refaced_path = refacer.reface_image(str(image_path.name), faces_config, disable_similarity=(origin_face_img is None), partial_reface_ratio=partial_reface_ratio)
                     output_messages.append(f"Saved to: {refaced_path}")
                     refaced_files.append(refaced_path)
+                    preview_images.append(refaced_path)
                 except Exception as e:
                     output_messages.append(f"Failed to process {os.path.basename(image_path.name)}: {e}")
             
-            # Create a zip file with the refaced images
-            zip_path = ""
-            if refaced_files:
-                zip_path = os.path.join("./tmp", f"refaced_images_{int(time.time() * 1000)}.zip")
-                import zipfile
-                with zipfile.ZipFile(zip_path, 'w') as zipf:
-                    for file in refaced_files:
-                        zipf.write(file, os.path.basename(file))
+            return "\n".join(output_messages), "Processing complete.", None, gr.update(visible=True), preview_images, refaced_files
 
-            return "\n".join(output_messages), "Processing complete.", zip_path
+        def download_selected(selected_files):
+            if not selected_files:
+                return None
+            
+            zip_path = os.path.join("./tmp", f"refaced_images_{int(time.time() * 1000)}.zip")
+            import zipfile
+            with zipfile.ZipFile(zip_path, 'w') as zipf:
+                for file in selected_files:
+                    zipf.write(file, os.path.basename(file))
+            return zip_path
 
         bulk_btn.click(
             fn=run_bulk,
             inputs=[input_files, dest_face, origin_face, threshold, partial_reface_ratio_bulk],
-            outputs=[bulk_output, bulk_status, bulk_download]
+            outputs=[bulk_output, bulk_status, bulk_download, bulk_preview_col, bulk_preview_gallery, selected_files_chg]
+        )
+
+        select_all_btn.click(lambda x: gr.update(value=x), inputs=[selected_files_chg], outputs=[selected_files_chg])
+        deselect_all_btn.click(lambda: gr.update(value=[]), inputs=None, outputs=[selected_files_chg])
+
+        download_selected_btn.click(
+            fn=download_selected,
+            inputs=[selected_files_chg],
+            outputs=[bulk_download]
         )
 
     # --- BULK VIDEO MODE ---
@@ -452,9 +474,17 @@ with gr.Blocks(theme=theme, title="NeoRefacer - AI Refacer") as demo:
         with gr.Row():
             bulk_video_download = gr.File(label="Download Results")
 
+        with gr.Column(visible=False) as bulk_video_preview_col:
+            bulk_video_preview_gallery = gr.Gallery(label="Preview Results")
+            with gr.Row():
+                select_all_video_btn = gr.Button("Select All")
+                deselect_all_video_btn = gr.Button("Deselect All")
+            selected_video_files_chg = gr.CheckboxGroup(label="Selected Files", visible=False)
+            download_selected_video_btn = gr.Button("Download Selected", variant="primary")
+
         def run_bulk_video(files, dest_face_img, origin_face_img, threshold_val, partial_reface_ratio, progress=gr.Progress()):
             if not files or dest_face_img is None:
-                return "Input videos and destination face are required.", "", None
+                return "Input videos and destination face are required.", "", None, gr.update(visible=False), [], []
 
             faces_config = [{
                 'origin': origin_face_img,
@@ -464,6 +494,7 @@ with gr.Blocks(theme=theme, title="NeoRefacer - AI Refacer") as demo:
 
             output_messages = []
             refaced_files = []
+            preview_images = []
             total_files = len(files)
 
             for i, video_path in enumerate(files):
@@ -473,24 +504,41 @@ with gr.Blocks(theme=theme, title="NeoRefacer - AI Refacer") as demo:
                     refaced_path, _ = refacer.reface(str(video_path.name), faces_config, disable_similarity=(origin_face_img is None), partial_reface_ratio=partial_reface_ratio)
                     output_messages.append(f"Saved to: {refaced_path}")
                     refaced_files.append(refaced_path)
+
+                    # Extract a frame for preview
+                    preview_frame_path = os.path.join("./tmp", f"preview_{int(time.time() * 1000)}.jpg")
+                    ffmpeg.input(refaced_path).output(preview_frame_path, vframes=1).run(quiet=True)
+                    preview_images.append(preview_frame_path)
+
                 except Exception as e:
                     output_messages.append(f"Failed to process {os.path.basename(video_path.name)}: {e}")
             
-            # Create a zip file with the refaced videos
-            zip_path = ""
-            if refaced_files:
-                zip_path = os.path.join("./tmp", f"refaced_videos_{int(time.time() * 1000)}.zip")
-                import zipfile
-                with zipfile.ZipFile(zip_path, 'w') as zipf:
-                    for file in refaced_files:
-                        zipf.write(file, os.path.basename(file))
+            return "\n".join(output_messages), "Processing complete.", None, gr.update(visible=True), preview_images, refaced_files
 
-            return "\n".join(output_messages), "Processing complete.", zip_path
+        def download_selected_videos(selected_files):
+            if not selected_files:
+                return None
+            
+            zip_path = os.path.join("./tmp", f"refaced_videos_{int(time.time() * 1000)}.zip")
+            import zipfile
+            with zipfile.ZipFile(zip_path, 'w') as zipf:
+                for file in selected_files:
+                    zipf.write(file, os.path.basename(file))
+            return zip_path
 
         bulk_video_btn.click(
             fn=run_bulk_video,
             inputs=[video_files_bulk, dest_face_bulk_video, origin_face_bulk_video, threshold_bulk_video, partial_reface_ratio_bulk_video],
-            outputs=[bulk_video_output, bulk_video_status, bulk_video_download]
+            outputs=[bulk_video_output, bulk_video_status, bulk_video_download, bulk_video_preview_col, bulk_video_preview_gallery, selected_video_files_chg]
+        )
+
+        select_all_video_btn.click(lambda x: gr.update(value=x), inputs=[selected_video_files_chg], outputs=[selected_video_files_chg])
+        deselect_all_video_btn.click(lambda: gr.update(value=[]), inputs=None, outputs=[selected_video_files_chg])
+
+        download_selected_video_btn.click(
+            fn=download_selected_videos,
+            inputs=[selected_video_files_chg],
+            outputs=[bulk_video_download]
         )
 
 # --- ngrok connect (optional) ---
