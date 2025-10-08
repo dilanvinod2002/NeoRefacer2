@@ -164,12 +164,12 @@ with gr.Blocks(theme=theme, title="NeoRefacer - AI Refacer") as demo:
     icon_html = f'<img src="data:image/png;base64,{icon_data}" style="width:40px;height:40px;margin-right:10px;">'
 
     with gr.Row():
-        gr.Markdown(f"""
+        gr.Markdown(f'''
         <div style="display: flex; align-items: center;">
         {icon_html}
         <span style="font-size: 2em; font-weight: bold; color:#2563eb;">NeoRefacer</span>
         </div>
-        """)
+        ''')
 
     # --- IMAGE MODE ---
     with gr.Tab("Image Mode"):
