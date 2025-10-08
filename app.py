@@ -393,7 +393,7 @@ with gr.Blocks(theme=theme, title="NeoRefacer - AI Refacer") as demo:
             bulk_download = gr.File(label="Download Results")
 
         def run_bulk(files, dest_face_img, origin_face_img, threshold_val, partial_reface_ratio, progress=gr.Progress()):
-            if not files or not dest_face_img:
+            if not files or dest_face_img is None:
                 return "Input images and destination face are required.", "", None
 
             faces_config = [{
@@ -453,7 +453,7 @@ with gr.Blocks(theme=theme, title="NeoRefacer - AI Refacer") as demo:
             bulk_video_download = gr.File(label="Download Results")
 
         def run_bulk_video(files, dest_face_img, origin_face_img, threshold_val, partial_reface_ratio, progress=gr.Progress()):
-            if not files or not dest_face_img:
+            if not files or dest_face_img is None:
                 return "Input videos and destination face are required.", "", None
 
             faces_config = [{
