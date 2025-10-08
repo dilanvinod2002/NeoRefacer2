@@ -378,11 +378,12 @@ with gr.Blocks(theme=theme, title="NeoRefacer - AI Refacer") as demo:
     # --- BULK MODE ---
     with gr.Tab("Bulk Mode"):
         with gr.Row():
-            input_file = gr.File(label="Input Images (zip file)", file_types=[".zip"])
+            input_files = gr.File(label="Input Images", file_count="multiple", file_types=["image"])
             dest_face = gr.Image(label="Destination Face")
         with gr.Row():
             origin_face = gr.Image(label="Face to Replace (optional)")
             threshold = gr.Slider(label="Similarity Threshold", minimum=0.0, maximum=1.0, value=0.2)
+            partial_reface_ratio_bulk = gr.Slider(label="Reface Ratio (0 = Full Face, 0.5 = Half Face)", minimum=0.0, maximum=0.5, value=0.0, step=0.1)
         with gr.Row():
             bulk_btn = gr.Button("Reface Bulk", variant="primary")
         with gr.Row():
@@ -391,16 +392,9 @@ with gr.Blocks(theme=theme, title="NeoRefacer - AI Refacer") as demo:
         with gr.Row():
             bulk_download = gr.File(label="Download Results")
 
-        def run_bulk(zip_file, dest_face_img, origin_face_img, threshold_val, progress=gr.Progress()):
-            if not zip_file or not dest_face_img:
-                return "Input zip file and destination face are required.", "", None
-
-            import zipfile
-            temp_dir = tempfile.mkdtemp(dir="./tmp")
-            with zipfile.ZipFile(zip_file.name, 'r') as zip_ref:
-                zip_ref.extractall(temp_dir)
-
-            input_dir_path = Path(temp_dir)
+        def run_bulk(files, dest_face_img, origin_face_img, threshold_val, partial_reface_ratio, progress=gr.Progress()):
+            if not files or not dest_face_img:
+                return "Input images and destination face are required.", "", None
 
             faces_config = [{
                 'origin': origin_face_img,
@@ -412,46 +406,44 @@ with gr.Blocks(theme=theme, title="NeoRefacer - AI Refacer") as demo:
 
             output_messages = []
             refaced_files = []
-            image_files = [p for p in input_dir_path.glob("**/*") if p.suffix.lower() in {'.jpg', '.jpeg', '.png', '.bmp', '.webp'}]
-            total_files = len(image_files)
+            total_files = len(files)
 
-            for i, image_path in enumerate(image_files):
-                progress(i / total_files, desc=f"Processing {image_path.name}")
-                output_messages.append(f"Refacing: {image_path.name}")
+            for i, image_path in enumerate(files):
+                progress(i / total_files, desc=f"Processing {os.path.basename(image_path.name)}")
+                output_messages.append(f"Refacing: {os.path.basename(image_path.name)}")
                 try:
-                    refaced_path = refacer.reface_image(str(image_path), faces_config, disable_similarity=(origin_face_img is None))
+                    refaced_path = refacer.reface_image(str(image_path.name), faces_config, disable_similarity=(origin_face_img is None), partial_reface_ratio=partial_reface_ratio)
                     output_messages.append(f"Saved to: {refaced_path}")
                     refaced_files.append(refaced_path)
                 except Exception as e:
-                    output_messages.append(f"Failed to process {image_path.name}: {e}")
+                    output_messages.append(f"Failed to process {os.path.basename(image_path.name)}: {e}")
             
             # Create a zip file with the refaced images
             zip_path = ""
             if refaced_files:
                 zip_path = os.path.join("./tmp", f"refaced_images_{int(time.time() * 1000)}.zip")
+                import zipfile
                 with zipfile.ZipFile(zip_path, 'w') as zipf:
                     for file in refaced_files:
                         zipf.write(file, os.path.basename(file))
-
-            # Cleanup
-            shutil.rmtree(temp_dir)
 
             return "\n".join(output_messages), "Processing complete.", zip_path
 
         bulk_btn.click(
             fn=run_bulk,
-            inputs=[input_file, dest_face, origin_face, threshold],
+            inputs=[input_files, dest_face, origin_face, threshold, partial_reface_ratio_bulk],
             outputs=[bulk_output, bulk_status, bulk_download]
         )
 
     # --- BULK VIDEO MODE ---
     with gr.Tab("Bulk Video Mode"):
         with gr.Row():
-            video_input_bulk = gr.File(label="Input Videos (zip file)", file_types=[".zip"])
+            video_files_bulk = gr.File(label="Input Videos", file_count="multiple", file_types=["video"])
             dest_face_bulk_video = gr.Image(label="Destination Face")
         with gr.Row():
             origin_face_bulk_video = gr.Image(label="Face to Replace (optional)")
             threshold_bulk_video = gr.Slider(label="Similarity Threshold", minimum=0.0, maximum=1.0, value=0.2)
+            partial_reface_ratio_bulk_video = gr.Slider(label="Reface Ratio (0 = Full Face, 0.5 = Half Face)", minimum=0.0, maximum=0.5, value=0.0, step=0.1)
         with gr.Row():
             bulk_video_btn = gr.Button("Reface Bulk Videos", variant="primary")
         with gr.Row():
@@ -460,16 +452,9 @@ with gr.Blocks(theme=theme, title="NeoRefacer - AI Refacer") as demo:
         with gr.Row():
             bulk_video_download = gr.File(label="Download Results")
 
-        def run_bulk_video(zip_file, dest_face_img, origin_face_img, threshold_val, progress=gr.Progress()):
-            if not zip_file or not dest_face_img:
-                return "Input zip file and destination face are required.", "", None
-
-            import zipfile
-            temp_dir = tempfile.mkdtemp(dir="./tmp")
-            with zipfile.ZipFile(zip_file.name, 'r') as zip_ref:
-                zip_ref.extractall(temp_dir)
-
-            input_dir_path = Path(temp_dir)
+        def run_bulk_video(files, dest_face_img, origin_face_img, threshold_val, partial_reface_ratio, progress=gr.Progress()):
+            if not files or not dest_face_img:
+                return "Input videos and destination face are required.", "", None
 
             faces_config = [{
                 'origin': origin_face_img,
@@ -479,35 +464,32 @@ with gr.Blocks(theme=theme, title="NeoRefacer - AI Refacer") as demo:
 
             output_messages = []
             refaced_files = []
-            video_files = [p for p in input_dir_path.glob("**/*") if p.suffix.lower() in {'.mp4', '.mov', '.avi', '.mkv'}]
-            total_files = len(video_files)
+            total_files = len(files)
 
-            for i, video_path in enumerate(video_files):
-                progress(i / total_files, desc=f"Processing {video_path.name}")
-                output_messages.append(f"Refacing: {video_path.name}")
+            for i, video_path in enumerate(files):
+                progress(i / total_files, desc=f"Processing {os.path.basename(video_path.name)}")
+                output_messages.append(f"Refacing: {os.path.basename(video_path.name)}")
                 try:
-                    refaced_path, _ = refacer.reface(str(video_path), faces_config, disable_similarity=(origin_face_img is None))
+                    refaced_path, _ = refacer.reface(str(video_path.name), faces_config, disable_similarity=(origin_face_img is None), partial_reface_ratio=partial_reface_ratio)
                     output_messages.append(f"Saved to: {refaced_path}")
                     refaced_files.append(refaced_path)
                 except Exception as e:
-                    output_messages.append(f"Failed to process {video_path.name}: {e}")
+                    output_messages.append(f"Failed to process {os.path.basename(video_path.name)}: {e}")
             
             # Create a zip file with the refaced videos
             zip_path = ""
             if refaced_files:
                 zip_path = os.path.join("./tmp", f"refaced_videos_{int(time.time() * 1000)}.zip")
+                import zipfile
                 with zipfile.ZipFile(zip_path, 'w') as zipf:
                     for file in refaced_files:
                         zipf.write(file, os.path.basename(file))
-
-            # Cleanup
-            shutil.rmtree(temp_dir)
 
             return "\n".join(output_messages), "Processing complete.", zip_path
 
         bulk_video_btn.click(
             fn=run_bulk_video,
-            inputs=[video_input_bulk, dest_face_bulk_video, origin_face_bulk_video, threshold_bulk_video],
+            inputs=[video_files_bulk, dest_face_bulk_video, origin_face_bulk_video, threshold_bulk_video, partial_reface_ratio_bulk_video],
             outputs=[bulk_video_output, bulk_video_status, bulk_video_download]
         )
 
