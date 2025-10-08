@@ -289,12 +289,17 @@ class Refacer:
                         break
         return frame
 
-    def reface_group(self, faces, frames, output):
+    def reface_group(self, faces, frames, output, enhance_video=False):
         with ThreadPoolExecutor(max_workers=self.use_num_cpus) as executor:
             if self.first_face:
                 results = list(tqdm(executor.map(self.process_first_face, frames), total=len(frames), desc="Processing frames"))
             else:
                 results = list(tqdm(executor.map(self.process_faces, frames), total=len(frames), desc="Processing frames"))
+            
+            if enhance_video:
+                enhanced_results = list(tqdm(executor.map(enhance_image_memory, results), total=len(results), desc="Enhancing frames"))
+                results = enhanced_results
+
             for result in results:
                 output.write(result)
 
@@ -305,7 +310,7 @@ class Refacer:
         if audio_stream is not None:
             self.video_has_audio = True
 
-    def reface(self, video_path, faces, preview=False, disable_similarity=False, multiple_faces_mode=False, partial_reface_ratio=0.0):
+    def reface(self, video_path, faces, preview=False, disable_similarity=False, multiple_faces_mode=False, partial_reface_ratio=0.0, enhance_video=False):
         original_name = osp.splitext(osp.basename(video_path))[0]
         timestamp = str(int(time.time()))
         filename = f"{original_name}_preview.mp4" if preview else f"{original_name}_{timestamp}.mp4"
@@ -344,7 +349,7 @@ class Refacer:
                 if frame_index % skip_rate == 0:
                     frames.append(frame)
                     if len(frames) > 300:
-                        self.reface_group(faces, frames, output)
+                        self.reface_group(faces, frames, output, enhance_video=enhance_video)
                         frames = []
                         gc.collect()
                 frame_index += 1
@@ -352,7 +357,7 @@ class Refacer:
     
         cap.release()
         if frames:
-            self.reface_group(faces, frames, output)
+            self.reface_group(faces, frames, output, enhance_video=enhance_video)
         output.release()
     
         converted_path = self.__convert_video(video_path, output_video_path, preview=preview)

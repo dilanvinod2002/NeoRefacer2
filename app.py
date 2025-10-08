@@ -80,10 +80,11 @@ def run(*vars):
     video_path = vars[0]
     origins = vars[1:(num_faces+1)]
     destinations = vars[(num_faces+1):(num_faces*2)+1]
-    thresholds = vars[(num_faces*2)+1:-3]
-    preview = vars[-3]
-    face_mode = vars[-2]
-    partial_reface_ratio = vars[-1]
+    thresholds = vars[(num_faces*2)+1:-4]
+    preview = vars[-4]
+    face_mode = vars[-3]
+    partial_reface_ratio = vars[-2]
+    enhance_video = vars[-1]
 
     disable_similarity = (face_mode in ["Single Face", "Multiple Faces"])
     multiple_faces_mode = (face_mode == "Multiple Faces")
@@ -97,7 +98,7 @@ def run(*vars):
                 'threshold': thresholds[k] if not multiple_faces_mode else 0.0
             })
 
-    mp4_path, gif_path = refacer.reface(video_path, faces, preview=preview, disable_similarity=disable_similarity, multiple_faces_mode=multiple_faces_mode, partial_reface_ratio=partial_reface_ratio)
+    mp4_path, gif_path = refacer.reface(video_path, faces, preview=preview, disable_similarity=disable_similarity, multiple_faces_mode=multiple_faces_mode, partial_reface_ratio=partial_reface_ratio, enhance_video=enhance_video)
     return mp4_path, gif_path if gif_path else None
 
 def load_first_frame(filepath):
@@ -336,6 +337,7 @@ with gr.Blocks(theme=theme, title="NeoRefacer - AI Refacer") as demo:
             video_btn = gr.Button("Reface Video", variant="primary")
 
         preview_checkbox_video = gr.Checkbox(label="Preview Generation (skip 90% of frames)", value=False)
+        enhance_video_checkbox = gr.Checkbox(label="Enhance Video (slow)", value=False)
 
         origin_video, destination_video, thresholds_video, face_tabs_video = [], [], [], []
 
@@ -372,7 +374,7 @@ with gr.Blocks(theme=theme, title="NeoRefacer - AI Refacer") as demo:
 
         video_btn.click(
             fn=lambda *args: run(*args),
-            inputs=[video_input] + origin_video + destination_video + thresholds_video + [preview_checkbox_video, face_mode_video, partial_reface_ratio_video],
+            inputs=[video_input] + origin_video + destination_video + thresholds_video + [preview_checkbox_video, face_mode_video, partial_reface_ratio_video, enhance_video_checkbox],
             outputs=[video_output, gr.File(visible=False)]
         )
 
@@ -469,6 +471,7 @@ with gr.Blocks(theme=theme, title="NeoRefacer - AI Refacer") as demo:
             origin_face_bulk_video = gr.Image(label="Face to Replace (optional)")
             threshold_bulk_video = gr.Slider(label="Similarity Threshold", minimum=0.0, maximum=1.0, value=0.2)
             partial_reface_ratio_bulk_video = gr.Slider(label="Reface Ratio (0 = Full Face, 0.5 = Half Face)", minimum=0.0, maximum=0.5, value=0.0, step=0.1)
+            enhance_video_checkbox_bulk = gr.Checkbox(label="Enhance Video (slow)", value=False)
         with gr.Row():
             bulk_video_btn = gr.Button("Reface Bulk Videos", variant="primary")
         with gr.Row():
@@ -485,7 +488,7 @@ with gr.Blocks(theme=theme, title="NeoRefacer - AI Refacer") as demo:
             selected_video_files_chg = gr.CheckboxGroup(label="Selected Files", visible=False)
             download_selected_video_btn = gr.Button("Download Selected", variant="primary")
 
-        def run_bulk_video(files, dest_face_img, origin_face_img, threshold_val, partial_reface_ratio, progress=gr.Progress()):
+        def run_bulk_video(files, dest_face_img, origin_face_img, threshold_val, partial_reface_ratio, enhance_video, progress=gr.Progress()):
             if not files or dest_face_img is None:
                 return "Input videos and destination face are required.", "", None, gr.update(visible=False), [], gr.update(choices=[], value=[])
 
@@ -504,7 +507,7 @@ with gr.Blocks(theme=theme, title="NeoRefacer - AI Refacer") as demo:
                 progress(i / total_files, desc=f"Processing {os.path.basename(video_path.name)}")
                 output_messages.append(f"Refacing: {os.path.basename(video_path.name)}")
                 try:
-                    refaced_path, _ = refacer.reface(str(video_path.name), faces_config, disable_similarity=(origin_face_img is None), partial_reface_ratio=partial_reface_ratio)
+                    refaced_path, _ = refacer.reface(str(video_path.name), faces_config, disable_similarity=(origin_face_img is None), partial_reface_ratio=partial_reface_ratio, enhance_video=enhance_video)
                     output_messages.append(f"Saved to: {refaced_path}")
                     refaced_files.append(refaced_path)
 
@@ -531,7 +534,7 @@ with gr.Blocks(theme=theme, title="NeoRefacer - AI Refacer") as demo:
 
         bulk_video_btn.click(
             fn=run_bulk_video,
-            inputs=[video_files_bulk, dest_face_bulk_video, origin_face_bulk_video, threshold_bulk_video, partial_reface_ratio_bulk_video],
+            inputs=[video_files_bulk, dest_face_bulk_video, origin_face_bulk_video, threshold_bulk_video, partial_reface_ratio_bulk_video, enhance_video_checkbox_bulk],
             outputs=[bulk_video_output, bulk_video_status, bulk_video_download, bulk_video_preview_col, bulk_video_preview_gallery, selected_video_files_chg]
         )
 
